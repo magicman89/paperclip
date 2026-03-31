@@ -431,12 +431,18 @@ async function migrationContentAlreadyApplied(
   const statements = splitMigrationStatements(migrationContent);
   if (statements.length === 0) return false;
 
+  // Migrations act within a single transaction bracket. 
+  // If we can firmly verify that ANY recognizable schema change 
+  // from this migration exists in the DB, we can safely conclude 
+  // the entire migration was previously applied. This prevents false 
+  // negatives for statements we can't parse safely (like ALTER COLUMN), 
+  // which return false from `migrationStatementAlreadyApplied`.
   for (const statement of statements) {
     const applied = await migrationStatementAlreadyApplied(sql, statement);
-    if (!applied) return false;
+    if (applied) return true;
   }
 
-  return true;
+  return false;
 }
 
 async function loadAppliedMigrations(

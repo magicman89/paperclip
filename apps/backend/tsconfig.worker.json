@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "noEmit": false
+  },
+  "include": ["src/worker.ts", "src/utils/supabase.ts", "src/utils/encryption.ts", "src/services/**/*.ts", "src/jobs/**/*.ts", "src/services/binanceService.ts", "src/services/coinbaseService.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

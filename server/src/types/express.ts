@@ -1,6 +1,6 @@
-export {};
+import type {} from "express-serve-static-core";
 
-type PaperclipActor = {
+export type PaperclipActor = {
   type: "board" | "agent" | "none";
   userId?: string;
   agentId?: string;

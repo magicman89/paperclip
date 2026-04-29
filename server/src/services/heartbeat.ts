@@ -31,6 +31,10 @@ import { secretService } from "./secrets.js";
 import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
 import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
 import {
+  buildConcreteHeartbeatResultJson,
+  buildHeartbeatCloseoutComment,
+} from "./heartbeat-result-closeout.js";
+import {
   buildWorkspaceReadyComment,
   cleanupExecutionWorkspaceArtifacts,
   ensureRuntimeServicesForRun,
@@ -2641,6 +2645,17 @@ export function heartbeatService(db: Db) {
             } as Record<string, unknown>)
           : null;
 
+      const concreteResultJson = buildConcreteHeartbeatResultJson({
+        agentName: agent.name,
+        runId: run.id,
+        status,
+        adapterResult,
+        issue: issueRef,
+        stdoutExcerpt,
+        stderrExcerpt,
+        runtimePrimaryUrl: readNonEmptyString(context.paperclipRuntimePrimaryUrl),
+      });
+
       await setRunStatus(run.id, status, {
         finishedAt: new Date(),
         error:
@@ -2661,7 +2676,7 @@ export function heartbeatService(db: Db) {
         exitCode: adapterResult.exitCode,
         signal: adapterResult.signal,
         usageJson,
-        resultJson: adapterResult.resultJson ?? null,
+        resultJson: concreteResultJson,
         sessionIdAfter: nextSessionState.displayId ?? nextSessionState.legacySessionId,
         stdoutExcerpt,
         stderrExcerpt,
@@ -2674,6 +2689,31 @@ export function heartbeatService(db: Db) {
         finishedAt: new Date(),
         error: adapterResult.errorMessage ?? null,
       });
+
+      if (issueId) {
+        try {
+          await issuesSvc.addComment(
+            issueId,
+            buildHeartbeatCloseoutComment({
+              agentName: agent.name,
+              runId: run.id,
+              status,
+              adapterResult,
+              issue: issueRef,
+              stdoutExcerpt,
+              stderrExcerpt,
+              runtimePrimaryUrl: readNonEmptyString(context.paperclipRuntimePrimaryUrl),
+              resultJson: concreteResultJson,
+            }),
+            { agentId: agent.id },
+          );
+        } catch (err) {
+          await onLog(
+            "stderr",
+            `[paperclip] Failed to post execution closeout comment: ${err instanceof Error ? err.message : String(err)}\n`,
+          );
+        }
+      }
 
       const finalizedRun = await getRun(run.id);
       if (finalizedRun) {
@@ -2731,10 +2771,31 @@ export function heartbeatService(db: Db) {
         }
       }
 
+      const failedAdapterResult: AdapterExecutionResult = {
+        exitCode: null,
+        signal: null,
+        timedOut: false,
+        errorMessage: message,
+        resultJson: {
+          summary: `${agent.name} failed before adapter closeout completed.`,
+          error: message,
+        },
+      };
+      const failedResultJson = buildConcreteHeartbeatResultJson({
+        agentName: agent.name,
+        runId: run.id,
+        status: "failed",
+        adapterResult: failedAdapterResult,
+        issue: issueRef,
+        stdoutExcerpt,
+        stderrExcerpt,
+        runtimePrimaryUrl: readNonEmptyString(context.paperclipRuntimePrimaryUrl),
+      });
       const failedRun = await setRunStatus(run.id, "failed", {
         error: message,
         errorCode: "adapter_failed",
         finishedAt: new Date(),
+        resultJson: failedResultJson,
         stdoutExcerpt,
         stderrExcerpt,
         logBytes: logSummary?.bytes,
@@ -2745,6 +2806,28 @@ export function heartbeatService(db: Db) {
         finishedAt: new Date(),
         error: message,
       });
+
+      if (issueId) {
+        try {
+          await issuesSvc.addComment(
+            issueId,
+            buildHeartbeatCloseoutComment({
+              agentName: agent.name,
+              runId: run.id,
+              status: "failed",
+              adapterResult: failedAdapterResult,
+              issue: issueRef,
+              stdoutExcerpt,
+              stderrExcerpt,
+              runtimePrimaryUrl: readNonEmptyString(context.paperclipRuntimePrimaryUrl),
+              resultJson: failedResultJson,
+            }),
+            { agentId: agent.id },
+          );
+        } catch (commentErr) {
+          logger.warn({ err: commentErr, runId }, "failed to post heartbeat failure closeout comment");
+        }
+      }
 
       if (failedRun) {
         await appendRunEvent(failedRun, seq++, {

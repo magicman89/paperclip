@@ -219,6 +219,65 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
     expect(result.map((issue) => issue.id)).toEqual([matchedIssueId]);
   });
 
+  it("lists issue comments after an anchor in ascending order", async () => {
+    const companyId = randomUUID();
+    const issueId = randomUUID();
+
+    await db.insert(companies).values({
+      id: companyId,
+      name: "Paperclip",
+      issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
+      requireBoardApprovalForNewAgents: false,
+    });
+
+    await db.insert(issues).values({
+      id: issueId,
+      companyId,
+      title: "Comment pagination issue",
+      status: "todo",
+      priority: "medium",
+    });
+
+    const firstCommentId = randomUUID();
+    const secondCommentId = randomUUID();
+    const thirdCommentId = randomUUID();
+
+    await db.insert(issueComments).values([
+      {
+        id: firstCommentId,
+        companyId,
+        issueId,
+        body: "first",
+        createdAt: new Date("2026-03-26T10:00:00.000Z"),
+        updatedAt: new Date("2026-03-26T10:00:00.000Z"),
+      },
+      {
+        id: secondCommentId,
+        companyId,
+        issueId,
+        body: "second",
+        createdAt: new Date("2026-03-26T11:00:00.000Z"),
+        updatedAt: new Date("2026-03-26T11:00:00.000Z"),
+      },
+      {
+        id: thirdCommentId,
+        companyId,
+        issueId,
+        body: "third",
+        createdAt: new Date("2026-03-26T12:00:00.000Z"),
+        updatedAt: new Date("2026-03-26T12:00:00.000Z"),
+      },
+    ]);
+
+    const comments = await svc.listComments(issueId, {
+      afterCommentId: firstCommentId,
+      order: "asc",
+      limit: 2,
+    });
+
+    expect(comments.map((comment) => comment.id)).toEqual([secondCommentId, thirdCommentId]);
+  });
+
   it("hides archived inbox issues until new external activity arrives", async () => {
     const companyId = randomUUID();
     const userId = "user-1";

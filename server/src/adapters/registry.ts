@@ -222,13 +222,28 @@ const adaptersByType = new Map<string, ServerAdapterModule>(
   ].map((a) => [a.type, a]),
 );
 
+export class UnknownAgentTypeError extends Error {
+  constructor(public readonly type: string) {
+    super(
+      `Unknown agent adapter type: "${type}". ` +
+        `Register it in adapters/registry.ts or pick from: ${Array.from(adaptersByType.keys()).join(", ")}.`,
+    );
+    this.name = "UnknownAgentTypeError";
+  }
+}
+
 export function getServerAdapter(type: string): ServerAdapterModule {
   const adapter = adaptersByType.get(type);
-  if (!adapter) {
-    // Fall back to process adapter for unknown types
+  if (adapter) return adapter;
+
+  // Dev convenience only — never silently fall back in production.
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(`[adapters] Unknown type "${type}" — falling back to processAdapter (DEV ONLY).`);
     return processAdapter;
   }
-  return adapter;
+
+  throw new UnknownAgentTypeError(type);
 }
 
 export async function listAdapterModels(type: string): Promise<{ id: string; label: string }[]> {

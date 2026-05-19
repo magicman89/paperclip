@@ -30,7 +30,7 @@ FROM deps AS build
 WORKDIR /app
 COPY . .
 RUN pnpm --filter @paperclip/server build
-RUN pnpm --filter @paperclip/backend build || echo '[warn] backend build failed or not found'
+RUN pnpm --filter @bullspot/backend build
 
 FROM base AS runner
 WORKDIR /app
@@ -39,7 +39,6 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/server/node_modules ./server/node_modules
 COPY --from=build /app/apps/backend/dist ./apps/backend/dist
-COPY --from=build /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY --from=build /app/packages ./packages
 ENV NODE_ENV=production
 EXPOSE 3100

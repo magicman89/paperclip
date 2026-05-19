@@ -32,6 +32,7 @@ WORKDIR /app
 COPY . .
 RUN pnpm --filter @paperclipai/adapter-openclaw-gateway build || true
 RUN pnpm --filter @paperclipai/adapter-hermes-gateway build || true
+RUN pnpm --filter @paperclipai/plugin-sdk build || true
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/server build
 RUN pnpm --filter @bullspot/backend build

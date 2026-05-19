@@ -26,6 +26,7 @@ COPY packages/plugins/sdk/package.json packages/plugins/sdk/
 COPY patches/ patches/
 
 RUN pnpm install --no-frozen-lockfile
+RUN cd apps/backend && pnpm install --no-frozen-lockfile
 
 FROM deps AS build
 WORKDIR /app
@@ -35,7 +36,7 @@ RUN pnpm --filter @paperclipai/adapter-hermes-gateway build || true
 RUN pnpm --filter @paperclipai/plugin-sdk build || true
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/server build
-RUN pnpm --filter @bullspot/backend build
+RUN cd apps/backend && pnpm run build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 RUN test -f apps/backend/dist/index.js || (echo "ERROR: backend build output missing" && exit 1)
 

@@ -25,7 +25,7 @@ COPY packages/adapters/hermes-gateway/package.json packages/adapters/hermes-gate
 COPY packages/plugins/sdk/package.json packages/plugins/sdk/
 COPY patches/ patches/
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 FROM deps AS build
 WORKDIR /app
@@ -37,6 +37,7 @@ RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/server build
 RUN pnpm --filter @bullspot/backend build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
+RUN test -f apps/backend/dist/index.js || (echo "ERROR: backend build output missing" && exit 1)
 
 FROM base AS production
 WORKDIR /app

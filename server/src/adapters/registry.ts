@@ -257,3 +257,39 @@ export async function detectAdapterModel(
 export function findServerAdapter(type: string): ServerAdapterModule | null {
   return adaptersByType.get(type) ?? null;
 }
+
+export function registerServerAdapter(adapter: ServerAdapterModule): void {
+    adaptersByType.set(adapter.type, adapter);
+}
+
+export function unregisterServerAdapter(type: string): void {
+    adaptersByType.delete(type);
+}
+
+export function requireServerAdapter(type: string): ServerAdapterModule {
+    const adapter = adaptersByType.get(type);
+    if (!adapter) {
+          throw new Error(`No server adapter registered for type: ${type}`);
+    }
+    return adapter;
+}
+
+export async function refreshAdapterModels(type: string): Promise<{ id: string; label: string }[]> {
+    const adapter = adaptersByType.get(type);
+    if (!adapter) return [];
+    if (adapter.listModels) {
+          const discovered = await adapter.listModels();
+          if (discovered.length > 0) return discovered;
+    }
+    return adapter.models ?? [];
+}
+
+export function listAdapterModelProfiles(type: string): { id: string; label: string; profileKey: string; adapterConfig: Record<string, unknown> }[] {
+    const adapter = adaptersByType.get(type);
+    if (!adapter) return [];
+    return adapter.modelProfiles ?? [];
+}
+
+export function findActiveServerAdapter(type: string): ServerAdapterModule | null {
+    return adaptersByType.get(type) ?? null;
+}

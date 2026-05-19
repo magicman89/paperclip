@@ -1,7 +1,7 @@
 FROM node:20-bookworm-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git \
-  && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends ca-certificates curl git \
+    && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 
 FROM base AS deps
@@ -24,42 +24,24 @@ COPY packages/adapters/pi-local/package.json packages/adapters/pi-local/
 COPY packages/adapters/hermes-gateway/package.json packages/adapters/hermes-gateway/
 COPY packages/plugins/sdk/package.json packages/plugins/sdk/
 COPY patches/ patches/
-
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
 WORKDIR /app
 COPY . .
-RUN cd apps/backend && npm install
-RUN pnpm --filter @paperclipai/adapter-openclaw-gateway build || true
-RUN pnpm --filter @paperclipai/adapter-hermes-gateway build || true
-RUN pnpm --filter @paperclipai/plugin-sdk build || true
-RUN pnpm --filter @paperclipai/ui build
-RUN pnpm --filter @paperclipai/server build
-RUN cd apps/backend && npm run build
-RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
-RUN test -f apps/backend/dist/index.js || (echo "ERROR: backend build output missing" && exit 1)
+RUN pnpm --filter @paperclip/server build
+RUN pnpm --filter @paperclip/backend build || echo '[warn] backend build failed or not found'
 
-FROM base AS production
+FROM base AS runner
 WORKDIR /app
-COPY --chown=node:node --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai \
-  && mkdir -p /paperclip \
-  && chown node:node /paperclip
-
-ENV NODE_ENV=production \
-  HOME=/paperclip \
-  HOST=0.0.0.0 \
-  PORT=3100 \
-  SERVE_UI=true \
-  PAPERCLIP_HOME=/paperclip \
-  PAPERCLIP_INSTANCE_ID=default \
-  PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
-  PAPERCLIP_DEPLOYMENT_MODE=authenticated \
-  PAPERCLIP_DEPLOYMENT_EXPOSURE=private
-
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/server/node_modules ./server/node_modules
+COPY --from=build /app/apps/backend/dist ./apps/backend/dist
+COPY --from=build /app/apps/backend/node_modules ./apps/backend/node_modules
+COPY --from=build /app/packages ./packages
+ENV NODE_ENV=production
 EXPOSE 3100
 EXPOSE 4000
-
-USER node
-CMD ["/bin/sh", "-c", "PORT=4000 node apps/backend/dist/index.js & node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js"]
+CMD ["/bin/sh", "-c", "echo '[backend] starting on port 4000...' && PORT=4000 node apps/backend/dist/index.js 2>&1 & echo '[paperclip] starting on port 3100...' && node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js"]

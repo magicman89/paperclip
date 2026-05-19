@@ -29,7 +29,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 WORKDIR /app
 COPY . .
-RUN pnpm --filter @paperclip/server build
+RUN pnpm --filter @paperclipai/server build
 RUN pnpm --filter @bullspot/backend build
 
 FROM base AS runner

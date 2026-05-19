@@ -18,6 +18,7 @@ export function startCreditResetter(): void {
   const reset = async () => {
     try {
       const supabase = getSupabaseAdmin();
+
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
       const { data: profiles, error } = await supabase
@@ -41,6 +42,7 @@ export function startCreditResetter(): void {
             last_credit_reset: new Date().toISOString(),
           })
           .eq('id', profile.id);
+
         console.log(`[CreditResetter] Reset credits for user ${profile.id} (${profile.subscription_tier}): ${newCredits}`);
       }
     } catch (err) {

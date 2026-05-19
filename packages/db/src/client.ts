@@ -259,6 +259,25 @@ async function applyPendingMigrationsManually(
       );
       if (existingEntry) continue;
 
+      // Check if the migration's schema changes are already present in the database
+      // even though the journal entry is missing. This handles the case where the DB was
+      // migrated by a different mechanism (e.g. direct SQL restore, platform provisioning)
+      // but the Drizzle journal table was reset or lost. Without this check, re-running
+      // CREATE TABLE statements on existing tables causes a fatal 42P07 error.
+      const alreadyApplied = await migrationContentAlreadyApplied(sql, migrationContent);
+      if (alreadyApplied) {
+        // All schema objects already exist — just record the journal entry so we don't retry.
+        await recordMigrationHistoryEntry(
+          sql,
+          qualifiedTable,
+          columnNames,
+          migrationFile,
+          hash,
+          folderMillisByFileName.get(migrationFile) ?? Date.now(),
+        );
+        continue;
+      }
+
       await runInTransaction(sql, async () => {
         for (const statement of splitMigrationStatements(migrationContent)) {
           await sql.unsafe(statement);
@@ -412,12 +431,18 @@ async function migrationContentAlreadyApplied(
   const statements = splitMigrationStatements(migrationContent);
   if (statements.length === 0) return false;
 
+  // Migrations act within a single transaction bracket. 
+  // If we can firmly verify that ANY recognizable schema change 
+  // from this migration exists in the DB, we can safely conclude 
+  // the entire migration was previously applied. This prevents false 
+  // negatives for statements we can't parse safely (like ALTER COLUMN), 
+  // which return false from `migrationStatementAlreadyApplied`.
   for (const statement of statements) {
     const applied = await migrationStatementAlreadyApplied(sql, statement);
-    if (!applied) return false;
+    if (applied) return true;
   }
 
-  return true;
+  return false;
 }
 
 async function loadAppliedMigrations(

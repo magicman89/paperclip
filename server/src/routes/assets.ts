@@ -26,7 +26,7 @@ function sanitizeSvgBuffer(input: Buffer): Buffer | null {
   const domPurify = createDOMPurify(
     baseDom.window as unknown as Parameters<typeof createDOMPurify>[0],
   );
-  domPurify.addHook("uponSanitizeAttribute", (_node, data) => {
+  domPurify.addHook("uponSanitizeAttribute", (_node: Node, data: any) => {
     const attrName = data.attrName.toLowerCase();
     const attrValue = (data.attrValue ?? "").trim();
 

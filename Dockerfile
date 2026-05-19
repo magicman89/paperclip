@@ -17,7 +17,9 @@ COPY packages/adapter-utils/package.json packages/adapter-utils/
 COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
 COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
 COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
+COPY packages/adapters/cursor-cloud/package.json packages/adapters/cursor-cloud/
 COPY packages/adapters/gemini-local/package.json packages/adapters/gemini-local/
+COPY packages/adapters/grok-local/package.json packages/adapters/grok-local/
 COPY packages/adapters/openclaw-gateway/package.json packages/adapters/openclaw-gateway/
 COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
 COPY packages/adapters/acpx-local/package.json packages/adapters/acpx-local/
@@ -34,6 +36,7 @@ RUN cd apps/backend && npm install
 RUN pnpm --filter @paperclipai/adapter-openclaw-gateway build || true
 RUN pnpm --filter @paperclipai/adapter-hermes-gateway build || true
 RUN pnpm --filter @paperclipai/adapter-acpx-local build || true
+RUN pnpm --filter @paperclipai/adapter-grok-local build || true
 RUN pnpm --filter @paperclipai/plugin-sdk build || true
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/server build

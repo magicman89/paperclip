@@ -62,4 +62,4 @@ EXPOSE 3100
 EXPOSE 4000
 
 USER node
-CMD ["/bin/sh", "-c", "node apps/backend/dist/index.js & node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js"]
+CMD ["/bin/sh", "-c", "PORT=4000 node apps/backend/dist/index.js & node --import ./server/node_modules/tsx/dist/loader.mjs server/dist/index.js"]

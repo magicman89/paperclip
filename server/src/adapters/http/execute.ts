@@ -1,53 +1,75 @@
 import type { AdapterExecutionContext, AdapterExecutionResult } from "../types.js";
 import { asString, asNumber, parseObject } from "../utils.js";
 
+const MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 5000;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
-  const { config, runId, agent, context } = ctx;
-  const url = asString(config.url, "");
-  if (!url) throw new Error("HTTP adapter missing url");
+    const { config, runId, agent, context } = ctx;
+    const url = asString(config.url, "");
+    if (!url) throw new Error("HTTP adapter missing url");
 
   const method = asString(config.method, "POST");
-  const timeoutMs = asNumber(config.timeoutMs, 0);
-  const headers = parseObject(config.headers) as Record<string, string>;
-  const payloadTemplate = parseObject(config.payloadTemplate);
-  const body = { ...payloadTemplate, agentId: agent.id, runId, context };
+    const timeoutMs = asNumber(config.timeoutMs, 0);
+    const headers = parseObject(config.headers) as Record<string, string>;
+    const payloadTemplate = parseObject(config.payloadTemplate);
+    const body = { ...payloadTemplate, agentId: agent.id, runId, context };
 
   const controller = new AbortController();
-  const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    const timer = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
   try {
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "content-type": "application/json",
-        ...headers,
-      },
-      body: JSON.stringify(body),
-      ...(timer ? { signal: controller.signal } : {}),
-    });
+        let lastStatus = 0;
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                if (attempt > 0) {
+                          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+                          await sleep(delay);
+                }
 
-    if (!res.ok) {
-      throw new Error(`HTTP invoke failed with status ${res.status}`);
-    }
+          const res = await fetch(url, {
+                    method,
+                    headers: {
+                                "content-type": "application/json",
+                                ...headers,
+                    },
+                    body: JSON.stringify(body),
+                    ...(timer ? { signal: controller.signal } : {}),
+          });
 
-    return {
-      exitCode: 0,
-      signal: null,
-      timedOut: false,
-      summary: `HTTP ${method} ${url}`,
-    };
+          if (res.status === 429 && attempt < MAX_RETRIES) {
+                    lastStatus = res.status;
+                    continue;
+          }
+
+          if (!res.ok) {
+                    throw new Error(`HTTP invoke failed with status ${res.status}`);
+          }
+
+          return {
+                    exitCode: 0,
+                    signal: null,
+                    timedOut: false,
+                    summary: `HTTP ${method} ${url}`,
+          };
+        }
+
+      throw new Error(`HTTP invoke failed with status ${lastStatus} after ${MAX_RETRIES} retries`);
   } catch (err) {
-    if (timer && err instanceof Error && err.name === "AbortError") {
-      return {
-        exitCode: null,
-        signal: null,
-        timedOut: true,
-        errorMessage: `HTTP ${method} ${url} timed out after ${timeoutMs}ms`,
-        errorCode: "timeout",
-      };
-    }
-    throw err;
+        if (timer && err instanceof Error && err.name === "AbortError") {
+                return {
+                          exitCode: null,
+                          signal: null,
+                          timedOut: true,
+                          errorMessage: `HTTP ${method} ${url} timed out after ${timeoutMs}ms`,
+                          errorCode: "timeout",
+                };
+        }
+        throw err;
   } finally {
-    if (timer) clearTimeout(timer);
+        if (timer) clearTimeout(timer);
   }
 }

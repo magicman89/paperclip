@@ -1,0 +1,46 @@
+name: Sync files from magicman89-changes to master
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "magicman89"
+          git config user.email "magicman89@users.noreply.github.com"
+
+      - name: Fetch magicman89-changes branch
+        run: git fetch origin magicman89-changes
+
+      - name: Copy all changed files from magicman89-changes
+        run: |
+          # Checkout specific paths from magicman89-changes into master working tree
+          git checkout origin/magicman89-changes -- apps/backend
+          git checkout origin/magicman89-changes -- infrastructure
+          git checkout origin/magicman89-changes -- .github/workflows/ci.yml
+          git checkout origin/magicman89-changes -- packages/adapters/hermes-gateway
+          git checkout origin/magicman89-changes -- packages/db/src/migrations
+          git checkout origin/magicman89-changes -- packages/db/src/client.ts
+          git checkout origin/magicman89-changes -- packages/db/src/embedded-postgres.d.ts
+          git checkout origin/magicman89-changes -- packages/db/src/migration-runtime.ts
+          git checkout origin/magicman89-changes -- packages/db/src/test-embedded-postgres.ts
+          git checkout origin/magicman89-changes -- server/src/adapters/registry.ts
+          git checkout origin/magicman89-changes -- server/src/routes/assets.ts
+
+      - name: Commit and push
+        run: |
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: sync all custom files from magicman89-changes into master"
+          git push origin master

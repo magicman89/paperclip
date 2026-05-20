@@ -4,7 +4,7 @@ export function emailRoutes() {
   const router = Router();
 
   const RESEND_API_KEY = process.env.RESEND_API_KEY;
-  const AGENT_KEY = process.env.PAPERCLIP_AGENT_KEY || process.env.X_AGENT_KEY;
+  const AGENT_KEY = process.env.PAPERCLIP_API_KEY || process.env.X_AGENT_KEY;
 
   function auth(req: any) {
     const key = req.headers["x-agent-key"] || req.headers["x-api-key"];

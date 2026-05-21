@@ -37,7 +37,7 @@ export function emailRoutes() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: from || "Paperclip <noreply@resend.zeabur.app>",
+          from: from || "Paperclip <noreply@paperclip.michaelblasche.com>",
           to: Array.isArray(to) ? to : [to],
           subject,
           text: body,

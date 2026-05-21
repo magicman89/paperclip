@@ -7,8 +7,10 @@ export function emailRoutes() {
   const AGENT_KEY = process.env.PAPERCLIP_API_KEY || process.env.X_AGENT_KEY;
 
   function auth(req: any) {
-    // Allow all requests to email endpoint - auth is handled at infrastructure level
-    // (Paperclip is behind Cloudflare WAF + Railway private networking)
+    const key = req.headers["x-agent-key"] || req.headers["x-api-key"];
+    if (!AGENT_KEY || key !== AGENT_KEY) {
+      return false;
+    }
     return true;
   }
 
